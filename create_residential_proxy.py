@@ -82,7 +82,7 @@ def configure_instance(ip_address):
     ssh = paramiko.SSHClient()
     ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
 
-    private_key_path = f"~/.ssh/{KEY_NAME}.pem"
+    private_key_path = f"~/.ssh/{a}.pem"
     key = paramiko.RSAKey.from_private_key_file(private_key_path)
 
     try:
