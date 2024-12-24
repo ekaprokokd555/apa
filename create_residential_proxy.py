@@ -35,6 +35,8 @@ def create_security_group(ec2_client):
             Description='Security group for Squid Proxy'
         )
         security_group_id = response['GroupId']
+
+        # Menambahkan aturan untuk port 3128 (Squid Proxy) dan port 22 (SSH)
         ec2_client.authorize_security_group_ingress(
             GroupId=security_group_id,
             IpPermissions=[
@@ -43,6 +45,12 @@ def create_security_group(ec2_client):
                     'FromPort': 3128,
                     'ToPort': 3128,
                     'IpRanges': [{'CidrIp': '0.0.0.0/0'}]
+                },
+                {
+                    'IpProtocol': 'tcp',
+                    'FromPort': 22,
+                    'ToPort': 22,
+                    'IpRanges': [{'CidrIp': '0.0.0.0/0'}]  # Membuka akses SSH
                 }
             ]
         )
