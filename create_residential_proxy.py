@@ -70,8 +70,8 @@ def configure_instance(ip_address):
 
         # Install Squid Proxy
         commands = [
-            "sudo yum update -y",
-            "sudo yum install -y squid",
+            "sudo apt-get update -y",
+            "sudo apt-get install -y squid",
             f"echo \"{SQUID_CONF}\" | sudo tee /etc/squid/squid.conf",
             "sudo systemctl start squid",
             "sudo systemctl enable squid"
