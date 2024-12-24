@@ -3,18 +3,16 @@ import paramiko
 import time
 
 # AWS Configuration
-AWS_REGION = "us-east-1"
-INSTANCE_TYPE = "t2.micro"
-AMI_ID = "ami-0e2c8caa4b6378d8c"
-KEY_NAME = "a"
-SECURITY_GROUP = "squid-proxy-sg"
+AWS_REGION = "us-east-1"  # Ganti dengan region Anda
+INSTANCE_TYPE = "t2.micro"  # Instance type EC2
+AMI_ID = "ami-0e2c8caa4b6378d8c"  # Ganti dengan AMI ID (Amazon Linux)
+KEY_NAME = "a"  # Ganti dengan nama key pair Anda
+SECURITY_GROUP = "squid-proxy-sg"  # Nama security group
 
+# Squid Proxy & Lumina Configuration
 LUMINA_USERNAME = "brd-customer-hl_3ed253ee-zone-residential_proxy1"
 LUMINA_PASSWORD = "oahn7qt2kt61"
-PRIVATE_KEY_PATH = "C:/Users/USER/Documents/a (5).pem"
-
-SQUID_CONF = f"""
-http_port 3128
+SQUID_CONF = """http_port 3128
 
 acl to_lumina proxy_auth REQUIRED
 http_access allow to_lumina
@@ -27,50 +25,79 @@ request_header_access Via deny all
 request_header_access X-Forwarded-For deny all
 request_header_access Cache-Control deny all
 
-cache_peer lumina_residential.example.com parent 443 0 no-query no-digest originserver ssl login={LUMINA_USERNAME}:{LUMINA_PASSWORD}
-"""
+cache_peer lumina_residential.example.com parent 443 0 no-query no-digest originserver ssl login={username}:{password}
+""".format(username=LUMINA_USERNAME, password=LUMINA_PASSWORD)
 
-def wait_for_instance_ready(ec2_client, instance_id):
-    """Wait until the instance is in the running state."""
-    print("Waiting for instance to be ready...")
-    while True:
-        try:
-            response = ec2_client.describe_instance_status(InstanceIds=[instance_id])
-            statuses = response['InstanceStatuses']
-            if len(statuses) > 0:
-                state = statuses[0]['InstanceState']['Name']
-                if state == 'running':
-                    print("Instance is running.")
-                    return True
-        except Exception as e:
-            print(f"Error checking instance status: {e}")
-        time.sleep(10)
+def create_security_group(ec2_client):
+    try:
+        response = ec2_client.create_security_group(
+            GroupName=SECURITY_GROUP,
+            Description='Security group for Squid Proxy'
+        )
+        security_group_id = response['GroupId']
+
+        # Menambahkan aturan untuk port 3128 (Custom TCP) dan port 22 (SSH)
+        ec2_client.authorize_security_group_ingress(
+            GroupId=security_group_id,
+            IpPermissions=[
+                {
+                    'IpProtocol': 'tcp',
+                    'FromPort': 3128,
+                    'ToPort': 3128,
+                    'IpRanges': [{'CidrIp': '0.0.0.0/0'}]  # Membuka port 3128 ke semua IP
+                },
+                {
+                    'IpProtocol': 'tcp',
+                    'FromPort': 22,
+                    'ToPort': 22,
+                    'IpRanges': [{'CidrIp': '0.0.0.0/0'}]  # Membuka port 22 (SSH) ke semua IP
+                }
+            ]
+        )
+        print(f"Security group created: {SECURITY_GROUP} (ID: {security_group_id})")
+        return security_group_id
+    except Exception as e:
+        print(f"Security group error: {e}")
+        return None
+
+def launch_instance(ec2_client, security_group_id):
+    try:
+        response = ec2_client.run_instances(
+            ImageId=AMI_ID,
+            InstanceType=INSTANCE_TYPE,
+            KeyName=KEY_NAME,
+            MaxCount=1,
+            MinCount=1,
+            SecurityGroupIds=[security_group_id],
+        )
+        instance = response['Instances'][0]
+        instance_id = instance['InstanceId']
+        print(f"Instance launched: {instance_id}")
+        return instance_id
+    except Exception as e:
+        print(f"Error launching instance: {e}")
+        return None
 
 def get_instance_public_ip(ec2_client, instance_id):
-    """Get the public IP address of the instance."""
-    print("Getting instance public IP...")
-    retries = 10
-    for attempt in range(retries):
-        try:
-            response = ec2_client.describe_instances(InstanceIds=[instance_id])
-            instance = response['Reservations'][0]['Instances'][0]
-            if instance.get('PublicIpAddress'):
-                return instance['PublicIpAddress']
-        except Exception as e:
-            print(f"Error fetching public IP (attempt {attempt + 1}/{retries}): {e}")
-        time.sleep(10)
-    raise Exception("Failed to get public IP address.")
+    while True:
+        response = ec2_client.describe_instances(InstanceIds=[instance_id])
+        instance = response['Reservations'][0]['Instances'][0]
+        if instance.get('PublicIpAddress'):
+            return instance['PublicIpAddress']
+        time.sleep(30)
 
 def configure_instance(ip_address):
-    """Configure the EC2 instance with Squid Proxy."""
     ssh = paramiko.SSHClient()
     ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
 
-    try:
-        key = paramiko.RSAKey.from_private_key_file(PRIVATE_KEY_PATH)
-        print(f"Connecting to {ip_address}...")
-        ssh.connect(hostname=ip_address, username="ec2-user", pkey=key, timeout=60)
+    private_key_path = "C:/Users/USER/Documents/a (5).pem"
+    key = paramiko.RSAKey.from_private_key_file(private_key_path)
 
+    try:
+        print(f"Connecting to {ip_address}...")
+        ssh.connect(hostname=ip_address, username="ec2-user", pkey=key)
+
+        # Install Squid Proxy
         commands = [
             "sudo yum update -y",
             "sudo yum install -y squid",
@@ -84,8 +111,6 @@ def configure_instance(ip_address):
             print(stdout.read().decode(), stderr.read().decode())
 
         print("Squid Proxy configured successfully.")
-    except paramiko.ssh_exception.SSHException as e:
-        print(f"SSH Error: {e}")
     except Exception as e:
         print(f"Error configuring instance: {e}")
     finally:
@@ -104,16 +129,11 @@ if __name__ == "__main__":
     if not instance_id:
         exit(1)
 
-    # Step 3: Wait for Instance Ready
-    if not wait_for_instance_ready(ec2_client, instance_id):
-        print("Instance not ready. Exiting.")
-        exit(1)
-
-    # Step 4: Get Public IP
+    # Step 3: Wait for Public IP
     public_ip = get_instance_public_ip(ec2_client, instance_id)
     print(f"Instance public IP: {public_ip}")
 
-    # Step 5: Configure Instance with Squid Proxy
+    # Step 4: Configure Instance with Squid Proxy
     configure_instance(public_ip)
 
     print(f"Proxy server is ready at {public_ip}:3128")
