@@ -35,17 +35,17 @@ def create_security_group(ec2_client):
             Description='Security group for Squid Proxy'
         )
         security_group_id = response['GroupId']
-ec2_client.authorize_security_group_ingress(
-    GroupId=security_group_id,
-    IpPermissions=[
-        {
-            'IpProtocol': 'tcp',
-            'FromPort': 3128,
-            'ToPort': 3128,
-            'IpRanges': [{'CidrIp': '0.0.0.0/0'}]
-        }
-    ]
-)
+        ec2_client.authorize_security_group_ingress(
+            GroupId=security_group_id,
+            IpPermissions=[
+                {
+                    'IpProtocol': 'tcp',
+                    'FromPort': 3128,
+                    'ToPort': 3128,
+                    'IpRanges': [{'CidrIp': '0.0.0.0/0'}]
+                }
+            ]
+        )
         print(f"Security group created: {SECURITY_GROUP} (ID: {security_group_id})")
         return security_group_id
     except Exception as e:
