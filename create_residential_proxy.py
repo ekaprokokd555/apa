@@ -1,6 +1,7 @@
 import boto3
 import paramiko
 import time
+import subprocess  # Untuk menjalankan perintah curl secara otomatis
 
 # AWS Configuration
 AWS_REGION = "us-east-1"  # Ganti dengan region Anda
@@ -27,6 +28,11 @@ request_header_access Cache-Control deny all
 
 cache_peer lumina_residential.example.com parent 443 0 no-query no-digest originserver ssl login={username}:{password}
 """.format(username=LUMINA_USERNAME, password=LUMINA_PASSWORD)
+
+CURL_PROXY = "brd.superproxy.io:33335"
+CURL_USER = "brd-customer-hl_3ed253ee-zone-residential_proxy1"
+CURL_PASS = "oahn7qt2kt61"
+CURL_URL = "https://geo.brdtest.com/mygeo.json"
 
 def launch_instance(ec2_client):
     try:
@@ -74,7 +80,7 @@ def configure_instance(ip_address):
             "sudo apt-get install -y squid",
             f"echo \"{SQUID_CONF}\" | sudo tee /etc/squid/squid.conf",
             "sudo systemctl start squid",
-            "sudo systemctl enable squid"
+            "sudo systemctl enable squid",
             "sudo systemctl restart squid"
         ]
         for command in commands:
@@ -87,6 +93,25 @@ def configure_instance(ip_address):
         print(f"Error configuring instance: {e}")
     finally:
         ssh.close()
+
+def test_proxy():
+    print("Testing proxy with curl...")
+    curl_command = [
+        "curl",
+        "--proxy", CURL_PROXY,
+        "--proxy-user", f"{CURL_USER}:{CURL_PASS}",
+        "-k", CURL_URL
+    ]
+    try:
+        result = subprocess.run(curl_command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+        if result.returncode == 0:
+            print("Curl Test Result:")
+            print(result.stdout)
+        else:
+            print("Curl Test Error:")
+            print(result.stderr)
+    except Exception as e:
+        print(f"Error testing proxy with curl: {e}")
 
 if __name__ == "__main__":
     ec2_client = boto3.client('ec2', region_name=AWS_REGION)
@@ -102,5 +127,8 @@ if __name__ == "__main__":
 
     # Step 3: Configure Instance with Squid Proxy
     configure_instance(public_ip)
+
+    # Step 4: Test Proxy with Curl
+    test_proxy()
 
     print(f"Proxy server is ready at {public_ip}:3128")
