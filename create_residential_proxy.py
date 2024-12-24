@@ -6,7 +6,7 @@ import time
 AWS_REGION = "us-east-1"  # Ganti dengan region Anda
 INSTANCE_TYPE = "t2.micro"  # Instance type EC2
 AMI_ID = "ami-0e2c8caa4b6378d8c"  # Ganti dengan AMI ID (Amazon Linux)
-KEY_NAME = "a"  # Ganti dengan nama key pair Anda
+KEY_NAME = "jij"  # Ganti dengan nama key pair Anda
 SECURITY_GROUP_ID = "sg-05e2501e7afbaf442"  # Ganti dengan ID security group yang sudah ada
 
 # Squid Proxy & Lumina Configuration
@@ -58,7 +58,7 @@ def configure_instance(ip_address):
     ssh = paramiko.SSHClient()
     ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
 
-    private_key_path = "C:/Users/USER/Documents/a.pem"
+    private_key_path = "C:/Users/USER/Documents/jij.pem"
     key = paramiko.RSAKey.from_private_key_file(private_key_path)
 
     try:
