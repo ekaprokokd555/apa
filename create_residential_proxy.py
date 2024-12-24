@@ -75,6 +75,7 @@ def configure_instance(ip_address):
             f"echo \"{SQUID_CONF}\" | sudo tee /etc/squid/squid.conf",
             "sudo systemctl start squid",
             "sudo systemctl enable squid"
+            "sudo systemctl restart squid"
         ]
         for command in commands:
             print(f"Executing: {command}")
