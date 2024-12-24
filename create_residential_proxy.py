@@ -43,6 +43,10 @@ def create_security_group(ec2_client):
                     'FromPort': 3128,
                     'ToPort': 3128,
                     'IpRanges': [{'CidrIp': '0.0.0.0/0'}]
+                    'IpProtocol': 'tcp',
+                    'FromPort': 22,
+                    'ToPort': 22,
+                    'IpRanges': [{'CidrIp': '0.0.0.0/0'}]
                 }
             ]
         )
@@ -76,7 +80,7 @@ def get_instance_public_ip(ec2_client, instance_id):
         instance = response['Reservations'][0]['Instances'][0]
         if instance.get('PublicIpAddress'):
             return instance['PublicIpAddress']
-        time.sleep(5)
+        time.sleep(30)
 
 def configure_instance(ip_address):
     ssh = paramiko.SSHClient()
