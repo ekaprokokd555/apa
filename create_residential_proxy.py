@@ -66,7 +66,7 @@ def configure_instance(ip_address):
         time.sleep(60)  # Tunggu 60 detik untuk memastikan instance siap
 
         print(f"Connecting to {ip_address}...")
-        ssh.connect(hostname=ip_address, username="ec2-user", pkey=key, timeout=60)
+        ssh.connect(hostname=ip_address, username="ubuntu", pkey=key, timeout=60)
 
         # Install Squid Proxy
         commands = [
